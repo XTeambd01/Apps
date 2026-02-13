@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>বাংলা টিভি লাইভ - সরাসরি সম্প্রচার</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Tiro+Bangla:ital@0;1&display=swap" rel="stylesheet">
+    
+    <!-- HLS.js for M3U8 streaming -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #e74c3c;
+            --primary-dark: #c0392b;
+            --secondary: #2c3e50;
+            --dark: #1a1a2e;
+            --accent: #16a085;
+            --sports: #f39c12;
+            --light: #ecf0f1;
+            --text: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(44, 62, 80, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-family: 'Tiro Bangla', serif;
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary), #f39c12);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        /* Player Section */
+        .player-section {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px var(--shadow);
+        }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #000;
+            margin-bottom: 1.5rem;
+        }
+
+        .video-wrapper video,
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #hlsPlayer {
+            display: none;
+        }
+
+        #embedPlayer {
+            display: none;
+        }
+
+        #youtubePlayer {
+            display: none;
+        }
+
+        .video-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .channel-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .channel-meta {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .quality-badge {
+            background: linear-gradient(135deg, #4ade80, #16a085);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .sports-badge {
+            background: linear-gradient(135deg, var(--sports), #e67e22);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .video-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-family: 'Hind Siliguri', sans-serif;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Search & Filter */
+        .controls {
+            background: rgba(44, 62, 80, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 25px var(--shadow);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 0.8rem 1.5rem;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-family: 'Hind Siliguri', sans-serif;
+            font-size: 1rem;
+        }
+
+        #searchInput::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* Channel Grid */
+        .channels-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--light);
+        }
+
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .channel-card {
+            background: rgba(44, 62, 80, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .channel-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+
+        .channel-card.sports-channel {
+            border-color: rgba(243, 156, 18, 0.3);
+        }
+
+        .channel-card.sports-channel:hover {
+            border-color: var(--sports);
+            box-shadow: 0 10px 30px rgba(243, 156, 18, 0.3);
+        }
+
+        .channel-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), #f39c12);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .channel-logo.sports {
+            background: linear-gradient(135deg, var(--sports), #e67e22);
+        }
+
+        .channel-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .channel-category {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 0.5rem;
+        }
+
+        .channel-status {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.8rem;
+            color: #4ade80;
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .stream-type {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 8px;
+            margin-top: 0.3rem;
+            display: inline-block;
+        }
+
+        .info-box {
+            background: rgba(22, 160, 133, 0.2);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .channel-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-container {
+                flex-direction: column;
+            }
+
+            .video-controls {
+                width: 100%;
+            }
+
+            .btn {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div class="logo">📺 বাংলা টিভি লাইভ</div>
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span>সরাসরি সম্প্রচার</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Player Section -->
+        <div class="player-section">
+            <div class="info-box">
+                💡 <strong>টিপস:</strong> স্পোর্টস চ্যানেল HD quality তে চলে। Buffer হলে একটু অপেক্ষা করুন।
+            </div>
+
+            <div class="video-wrapper">
+                <video id="hlsPlayer" controls autoplay></video>
+                <iframe id="embedPlayer" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                <iframe id="youtubePlayer" allowfullscreen allow="autoplay"></iframe>
+                <div id="loadingIndicator" class="loading">
+                    <div class="spinner"></div>
+                    <p>চ্যানেল লোড হচ্ছে...</p>
+                </div>
+            </div>
+
+            <div class="video-info">
+                <div class="channel-info">
+                    <h2 id="currentChannel">একটি চ্যানেল নির্বাচন করুন</h2>
+                    <div class="channel-meta">
+                        <span id="currentCategory"></span>
+                        <span id="streamQuality" class="quality-badge" style="display: none;">HD</span>
+                        <span id="sportsIndicator" class="sports-badge" style="display: none;">⚽ লাইভ স্পোর্টস</span>
+                    </div>
+                </div>
+                <div class="video-controls">
+                    <button class="btn btn-primary" onclick="toggleFullscreen()">🖥️ ফুলস্ক্রিন</button>
+                    <button class="btn btn-secondary" onclick="reloadStream()">🔄 রিলোড</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="চ্যানেল খুঁজুন..." oninput="filterChannels()">
+            </div>
+            <div class="filters" id="filterContainer"></div>
+        </div>
+
+        <!-- Channels Section -->
+        <div class="channels-section">
+            <h3>📡 সব চ্যানেল (<span id="channelCount">0</span>টি)</h3>
+            <div class="channel-grid" id="channelGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        // Channels Database with Multiple Stream Types
+        const channelsDatabase = [
+            // ক্রীড়া চ্যানেল - Biostar TV World
+            { 
+                name: "T Sports HD", 
+                url: "https://biostar-tv-world.vercel.app/?id=t-sports-hd",
+                type: "embed",
+                category: "ক্রীড়া", 
+                country: "বাংলাদেশ", 
+                icon: "🏏"
+            },
+            { 
+                name: "Star Sports 2", 
+                url: "https://biostar-tv-world.vercel.app/?id=star-sports-2",
+                type: "embed",
+                category: "ক্রীড়া", 
+                country: "ভারত", 
+                icon: "⭐"
+            },
+            { 
+                name: "BeIN Sports 3", 
+                url: "https://biostar-tv-world.vercel.app/?id=bein-sports-3",
+                type: "embed",
+                category: "ক্রীড়া", 
+                country: "আন্তর্জাতিক", 
+                icon: "⚽"
+            },
+            
+            // M3U8 Direct Streams
+            { 
+                name: "Sample HD Stream", 
+                url: "https://ipc-mz-enc-02.akamaized.net/live/df39d915-d900-4828-9844-463297059817/b0e00d72-9112-429a-8a6e-3990802e2107/playlist.m3u8",
+                type: "m3u8",
+                category: "বিনোদন", 
+                country: "বাংলাদেশ", 
+                icon: "📺"
+            },
+            
+            // বাংলাদেশী সংবাদ চ্যানেল - YouTube
+            { 
+                name: "Somoy TV", 
+                url: "https://www.youtube.com/embed/JJheGT6PCsE",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "📰"
+            },
+            { 
+                name: "Independent TV", 
+                url: "https://www.youtube.com/embed/YE1WYZiMWek",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "📺"
+            },
+            { 
+                name: "Jamuna TV", 
+                url: "https://www.youtube.com/embed/3LqPsXdCmAk",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "📡"
+            },
+            { 
+                name: "Channel 24", 
+                url: "https://www.youtube.com/embed/L8VQFB4CXec",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "24"
+            },
+            { 
+                name: "DBC News", 
+                url: "https://www.youtube.com/embed/tSk1IQ09ZOg",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "DBC"
+            },
+            { 
+                name: "News 24", 
+                url: "https://www.youtube.com/embed/D3i4kUyzIQc",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "বাংলাদেশ", 
+                icon: "N24"
+            },
+            
+            // বাংলাদেশী বিনোদন চ্যানেল
+            { 
+                name: "ATN Bangla", 
+                url: "https://www.youtube.com/embed/0q8jD3nGNn0",
+                type: "youtube",
+                category: "বিনোদন", 
+                country: "বাংলাদেশ", 
+                icon: "ATN"
+            },
+            { 
+                name: "Banglavision", 
+                url: "https://www.youtube.com/embed/XCQZiX7lMEE",
+                type: "youtube",
+                category: "বিনোদন", 
+                country: "বাংলাদেশ", 
+                icon: "📺"
+            },
+
+            // ভারতীয় বাংলা চ্যানেল
+            { 
+                name: "ABP Ananda", 
+                url: "https://www.youtube.com/embed/3yADD9hnaT0",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "ভারত", 
+                icon: "ABP"
+            },
+            { 
+                name: "Zee 24 Ghanta", 
+                url: "https://www.youtube.com/embed/bGVtYF10x-0",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "ভারত", 
+                icon: "Zee"
+            },
+            { 
+                name: "TV9 Bangla", 
+                url: "https://www.youtube.com/embed/Mii8X0M5i3A",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "ভারত", 
+                icon: "TV9"
+            },
+            { 
+                name: "News18 Bangla", 
+                url: "https://www.youtube.com/embed/uD-2qZOPaZo",
+                type: "youtube",
+                category: "সংবাদ", 
+                country: "ভারত", 
+                icon: "N18"
+            },
+            { 
+                name: "Zee Bangla", 
+                url: "https://www.youtube.com/embed/QZ_tW62yceE",
+                type: "youtube",
+                category: "বিনোদন", 
+                country: "ভারত", 
+                icon: "⭐"
+            },
+
+            // আন্তর্জাতিক সংবাদ চ্যানেল
+            { 
+                name: "BBC News", 
+                url: "https://www.youtube.com/embed/jTWJdGMRAcE",
+                type: "youtube",
+                category: "আন্তর্জাতিক", 
+                country: "UK", 
+                icon: "BBC"
+            },
+            { 
+                name: "Al Jazeera English", 
+                url: "https://www.youtube.com/embed/gCNeDWCI0vo",
+                type: "youtube",
+                category: "আন্তর্জাতিক", 
+                country: "Qatar", 
+                icon: "AJ"
+            },
+            { 
+                name: "WION", 
+                url: "https://www.youtube.com/embed/yUXuR_uwzEI",
+                type: "youtube",
+                category: "আন্তর্জাতিক", 
+                country: "India", 
+                icon: "🌏"
+            },
+            { 
+                name: "DW News", 
+                url: "https://www.youtube.com/embed/pqabxBKzZ6M",
+                type: "youtube",
+                category: "আন্তর্জাতিক", 
+                country: "Germany", 
+                icon: "DW"
+            },
+        ];
+
+        // State Management
+        let currentChannelData = null;
+        let filteredChannels = [...channelsDatabase];
+        let activeFilter = 'সব';
+        let hls = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFilters();
+            renderChannels();
+            // Auto-play first sports channel
+            const firstSportsChannel = channelsDatabase.findIndex(c => c.category === 'ক্রীড়া');
+            if (firstSportsChannel !== -1) {
+                playChannel(firstSportsChannel);
+            } else if (channelsDatabase.length > 0) {
+                playChannel(0);
+            }
+        });
+
+        // Initialize Filters
+        function initializeFilters() {
+            const categories = ['সব', ...new Set(channelsDatabase.map(c => c.category))];
+            const filterContainer = document.getElementById('filterContainer');
+            
+            filterContainer.innerHTML = categories.map(cat => 
+                `<button class="filter-btn ${cat === 'সব' ? 'active' : ''}" onclick="filterByCategory('${cat}')">${cat}</button>`
+            ).join('');
+        }
+
+        // Filter by Category
+        function filterByCategory(category) {
+            activeFilter = category;
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === category);
+            });
+            
+            filterChannels();
+        }
+
+        // Filter Channels
+        function filterChannels() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredChannels = channelsDatabase.filter(channel => {
+                const matchesSearch = channel.name.toLowerCase().includes(searchTerm) || 
+                                    channel.category.toLowerCase().includes(searchTerm);
+                const matchesCategory = activeFilter === 'সব' || channel.category === activeFilter;
+                
+                return matchesSearch && matchesCategory;
+            });
+            
+            renderChannels();
+        }
+
+        // Render Channels
+        function renderChannels() {
+            const grid = document.getElementById('channelGrid');
+            
+            if (filteredChannels.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">কোন চ্যানেল পাওয়া যায়নি</p>';
+                document.getElementById('channelCount').textContent = '0';
+                return;
+            }
+            
+            grid.innerHTML = filteredChannels.map((channel, index) => {
+                const isSports = channel.category === 'ক্রীড়া';
+                return `
+                <div class="channel-card ${isSports ? 'sports-channel' : ''}" onclick="playChannel(${channelsDatabase.indexOf(channel)})" style="animation-delay: ${index * 0.05}s;">
+                    <div class="channel-logo ${isSports ? 'sports' : ''}">${channel.icon}</div>
+                    <div style="flex: 1;">
+                        <div class="channel-name">${channel.name}</div>
+                        <div class="channel-category">${channel.category} • ${channel.country}</div>
+                        <div class="channel-status">
+                            <span class="status-indicator"></span>
+                            লাইভ
+                        </div>
+                        <div class="stream-type">${
+                            channel.type === 'm3u8' ? 'HLS Stream' : 
+                            channel.type === 'embed' ? 'HD Embed' : 
+                            'YouTube'
+                        }</div>
+                    </div>
+                </div>
+            `}).join('');
+            
+            document.getElementById('channelCount').textContent = filteredChannels.length;
+        }
+
+        // Play Channel - supports M3U8, Embed, and YouTube
+        function playChannel(index) {
+            const channel = channelsDatabase[index];
+            currentChannelData = channel;
+            
+            // Show loading
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            
+            // Stop any existing HLS stream
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            
+            const hlsPlayer = document.getElementById('hlsPlayer');
+            const embedPlayer = document.getElementById('embedPlayer');
+            const youtubePlayer = document.getElementById('youtubePlayer');
+            
+            // Hide all players first
+            hlsPlayer.style.display = 'none';
+            embedPlayer.style.display = 'none';
+            youtubePlayer.style.display = 'none';
+            
+            if (channel.type === 'm3u8') {
+                // Play M3U8 Stream
+                embedPlayer.style.display = 'none';
+                youtubePlayer.style.display = 'none';
+                hlsPlayer.style.display = 'block';
+                
+                if (Hls.isSupported()) {
+                    hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        backBufferLength: 90
+                    });
+                    
+                    hls.loadSource(channel.url);
+                    hls.attachMedia(hlsPlayer);
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        hlsPlayer.play();
+                        document.getElementById('loadingIndicator').style.display = 'none';
+                    });
+                    
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            console.error('HLS Error:', data);
+                            document.getElementById('loadingIndicator').style.display = 'none';
+                        }
+                    });
+                } else if (hlsPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                    hlsPlayer.src = channel.url;
+                    hlsPlayer.addEventListener('loadedmetadata', function() {
+                        hlsPlayer.play();
+                        document.getElementById('loadingIndicator').style.display = 'none';
+                    });
+                }
+                document.getElementById('streamQuality').style.display = 'inline-block';
+            } 
+            else if (channel.type === 'embed') {
+                // Play Embedded Stream (Biostar TV World etc.)
+                hlsPlayer.style.display = 'none';
+                youtubePlayer.style.display = 'none';
+                embedPlayer.style.display = 'block';
+                embedPlayer.src = channel.url;
+                
+                setTimeout(() => {
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                }, 2000);
+                
+                document.getElementById('streamQuality').style.display = 'inline-block';
+            }
+            else {
+                // Play YouTube Embed
+                hlsPlayer.style.display = 'none';
+                embedPlayer.style.display = 'none';
+                youtubePlayer.style.display = 'block';
+                youtubePlayer.src = channel.url + '?autoplay=1&mute=0';
+                
+                setTimeout(() => {
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                }, 1500);
+                
+                document.getElementById('streamQuality').style.display = 'none';
+            }
+            
+            // Update info
+            document.getElementById('currentChannel').textContent = channel.name;
+            document.getElementById('currentCategory').textContent = `📍 ${channel.category} • ${channel.country}`;
+            
+            // Show sports indicator
+            const sportsIndicator = document.getElementById('sportsIndicator');
+            if (channel.category === 'ক্রীড়া') {
+                sportsIndicator.style.display = 'inline-block';
+            } else {
+                sportsIndicator.style.display = 'none';
+            }
+            
+            // Scroll to player
+            document.querySelector('.player-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Toggle Fullscreen
+        function toggleFullscreen() {
+            const hlsPlayer = document.getElementById('hlsPlayer');
+            const embedPlayer = document.getElementById('embedPlayer');
+            const youtubePlayer = document.getElementById('youtubePlayer');
+            
+            let activePlayer;
+            if (hlsPlayer.style.display === 'block') activePlayer = hlsPlayer;
+            else if (embedPlayer.style.display === 'block') activePlayer = embedPlayer;
+            else activePlayer = youtubePlayer;
+            
+            if (!document.fullscreenElement) {
+                if (activePlayer.requestFullscreen) {
+                    activePlayer.requestFullscreen();
+                } else if (activePlayer.webkitRequestFullscreen) {
+                    activePlayer.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Reload Stream
+        function reloadStream() {
+            if (currentChannelData) {
+                const index = channelsDatabase.indexOf(currentChannelData);
+                playChannel(index);
+            }
+        }
+    </script>
+</body>
+</html>
